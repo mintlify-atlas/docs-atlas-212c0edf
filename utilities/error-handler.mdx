@@ -1,0 +1,144 @@
+---
+title: Error Handler
+description: Centralized Express error handling middleware for Sequelize errors and general exceptions
+---
+
+## Overview
+
+The `errorHandler` middleware provides centralized error handling for your Express application. It specifically handles Sequelize database errors and provides appropriate HTTP responses with meaningful error messages.
+
+## Source Code
+
+```javascript src/utils/errorHandler.js
+const errorHandler = (error, _req, res, _next) => {
+    if(error.name === 'SequelizeValidationError') {
+        const errObj = {};
+        error.errors.map(er => {
+            errObj[er.path] = er.message;
+        })
+        return res.status(400).json(errObj);
+    }
+    if(error.name === 'SequelizeForeignKeyConstraintError'){
+        return res.status(400).json({ 
+            message: error.message,
+            error: error.parent.detail
+        });
+    }
+    if(error.name === 'SequelizeDatabaseError'){
+        return res.status(400).json({ 
+            message: error.message
+        });
+    }
+    return res.status(500).json({
+        message: error.message,
+        error: error
+    });
+}
+
+module.exports = errorHandler;
+```
+
+## Parameters
+
+<ParamField path="error" type="Error" required>
+  The error object caught by Express
+</ParamField>
+
+<ParamField path="_req" type="Request">
+  Express request object (unused, prefixed with underscore)
+</ParamField>
+
+<ParamField path="res" type="Response" required>
+  Express response object used to send error responses
+</ParamField>
+
+<ParamField path="_next" type="NextFunction">
+  Express next function (unused, prefixed with underscore)
+</ParamField>
+
+## Error Types Handled
+
+### SequelizeValidationError
+
+Handles validation errors from Sequelize models. Returns a 400 status with an object mapping field names to error messages.
+
+**Response Format:**
+```json
+{
+  "fieldName": "Error message",
+  "anotherField": "Another error message"
+}
+```
+
+### SequelizeForeignKeyConstraintError
+
+Handles foreign key constraint violations. Returns a 400 status with detailed error information.
+
+**Response Format:**
+```json
+{
+  "message": "Error message",
+  "error": "Detailed constraint violation information"
+}
+```
+
+### SequelizeDatabaseError
+
+Handles general database errors. Returns a 400 status with the error message.
+
+**Response Format:**
+```json
+{
+  "message": "Error message"
+}
+```
+
+### General Errors
+
+For all other errors, returns a 500 status with the error message and full error object.
+
+**Response Format:**
+```json
+{
+  "message": "Error message",
+  "error": { /* full error object */ }
+}
+```
+
+## Usage
+
+The error handler must be registered as the last middleware in your Express application, after all routes:
+
+```javascript src/app.js
+const express = require('express');
+const router = require('./routes');
+const errorHandler = require('./utils/errorHandler');
+
+const app = express();
+
+// Middlewares
+app.use(express.json());
+
+// Routes
+app.use(router);
+
+// Error handler must be AFTER routes
+app.use(errorHandler);
+
+module.exports = app;
+```
+
+<Note>
+  The error handler middleware must be placed **after all routes** to catch errors from any route handler.
+</Note>
+
+## How It Works
+
+1. When an error occurs in any route or middleware, Express passes it to the error handler
+2. The error handler checks the error name to determine the type of error
+3. Based on the error type, it formats an appropriate response
+4. The response includes the proper HTTP status code and error details
+
+<Tip>
+  Use this middleware in combination with the [catchError](/utilities/catch-error) wrapper to automatically handle async route errors.
+</Tip>

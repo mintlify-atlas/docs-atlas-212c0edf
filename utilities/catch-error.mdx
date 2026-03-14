@@ -1,0 +1,189 @@
+---
+title: Catch Error
+description: Async error wrapper for Express route handlers
+---
+
+## Overview
+
+The `catchError` utility is a higher-order function that wraps asynchronous Express route controllers to automatically catch and forward errors to Express error handling middleware.
+
+## Source Code
+
+```javascript src/utils/catchError.js
+const catchError = controller => {
+    return (req, res, next) => {
+        controller(req, res, next)
+            .catch(next);
+    }
+}
+
+module.exports = catchError
+```
+
+## Parameters
+
+<ParamField path="controller" type="Function" required>
+  An async Express route handler function that returns a Promise
+</ParamField>
+
+## Return Value
+
+Returns a new function that:
+- Accepts `req`, `res`, and `next` parameters (standard Express middleware signature)
+- Executes the controller function
+- Catches any rejected promises and passes them to `next()` for error handling
+
+## Why Use catchError?
+
+In Express, when you use async/await in route handlers, errors from rejected promises are not automatically caught by Express. You need to manually catch them and pass them to `next()`.
+
+### Without catchError
+
+```javascript
+// ❌ Errors won't be caught by Express error handler
+router.get('/users', async (req, res) => {
+    const users = await User.findAll(); // If this fails, app crashes
+    res.json(users);
+});
+
+// ✅ Manual error handling (verbose)
+router.get('/users', async (req, res, next) => {
+    try {
+        const users = await User.findAll();
+        res.json(users);
+    } catch (error) {
+        next(error);
+    }
+});
+```
+
+### With catchError
+
+```javascript
+const catchError = require('../utils/catchError');
+
+// ✅ Clean and automatic error handling
+router.get('/users', catchError(async (req, res) => {
+    const users = await User.findAll();
+    res.json(users);
+}));
+```
+
+## Usage Examples
+
+### Basic Route Handler
+
+```javascript
+const express = require('express');
+const catchError = require('../utils/catchError');
+const User = require('../models/User');
+
+const router = express.Router();
+
+router.get('/users', catchError(async (req, res) => {
+    const users = await User.findAll();
+    res.json(users);
+}));
+
+module.exports = router;
+```
+
+### With Parameters
+
+```javascript
+router.get('/users/:id', catchError(async (req, res) => {
+    const user = await User.findByPk(req.params.id);
+    if (!user) {
+        throw new Error('User not found');
+    }
+    res.json(user);
+}));
+```
+
+### POST Request
+
+```javascript
+router.post('/users', catchError(async (req, res) => {
+    const newUser = await User.create(req.body);
+    res.status(201).json(newUser);
+}));
+```
+
+### Multiple Async Operations
+
+```javascript
+router.get('/users/:id/posts', catchError(async (req, res) => {
+    const user = await User.findByPk(req.params.id);
+    const posts = await user.getPosts();
+    res.json({
+        user: user,
+        posts: posts
+    });
+}));
+```
+
+## How It Works
+
+1. `catchError` receives your async controller function
+2. It returns a new function with the Express middleware signature `(req, res, next)`
+3. When the route is called, it executes your controller
+4. If your controller throws an error or returns a rejected promise, `.catch(next)` catches it
+5. The error is passed to `next()`, which forwards it to Express error handling middleware
+
+<Note>
+  Any errors caught by `catchError` are automatically forwarded to the [errorHandler](/utilities/error-handler) middleware.
+</Note>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always use with async functions">
+    `catchError` is designed for async functions. Don't use it with synchronous route handlers:
+    
+    ```javascript
+    // ❌ Don't do this
+    router.get('/sync', catchError((req, res) => {
+        res.json({ message: 'Hello' });
+    }));
+    
+    // ✅ Do this instead
+    router.get('/sync', (req, res) => {
+        res.json({ message: 'Hello' });
+    });
+    ```
+  </Accordion>
+
+  <Accordion title="Combine with errorHandler middleware">
+    Use `catchError` on routes and `errorHandler` as the last middleware:
+    
+    ```javascript
+    const errorHandler = require('./utils/errorHandler');
+    
+    // Routes with catchError
+    app.use('/api', routes);
+    
+    // Error handler at the end
+    app.use(errorHandler);
+    ```
+  </Accordion>
+
+  <Accordion title="Throw meaningful errors">
+    When throwing errors in your controllers, provide meaningful messages:
+    
+    ```javascript
+    router.get('/users/:id', catchError(async (req, res) => {
+        const user = await User.findByPk(req.params.id);
+        if (!user) {
+            const error = new Error('User not found');
+            error.name = 'NotFoundError';
+            throw error;
+        }
+        res.json(user);
+    }));
+    ```
+  </Accordion>
+</AccordionGroup>
+
+<Tip>
+  Using `catchError` eliminates the need for try-catch blocks in every route handler, making your code cleaner and more maintainable.
+</Tip>

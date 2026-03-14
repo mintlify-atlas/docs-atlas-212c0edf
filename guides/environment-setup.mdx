@@ -1,0 +1,198 @@
+---
+title: 'Environment Setup'
+description: 'Configure environment variables for your Backend Template application'
+icon: 'gear'
+---
+
+## Overview
+
+The Backend Template uses environment variables to manage configuration settings. This guide walks you through setting up your `.env` file for local development and production.
+
+<Steps>
+  <Step title="Copy the example environment file">
+    The template includes a `.env.example` file with all required variables:
+
+    ```bash
+    cp .env.example .env
+    ```
+  </Step>
+
+  <Step title="Configure database connection">
+    Edit the `.env` file to set your PostgreSQL connection string:
+
+    ```bash .env
+    DATABASE_URL=postgres://postgres:root@127.0.0.1:5432/<nombre_db>
+    ```
+
+    Replace `<nombre_db>` with your actual database name.
+  </Step>
+
+  <Step title="Configure server port (optional)">
+    By default, the server runs on port 8080. You can override this by adding:
+
+    ```bash .env
+    PORT=3000
+    ```
+
+    The application falls back to port 8080 if `PORT` is not set (see `src/server.js:4`).
+  </Step>
+</Steps>
+
+## Environment Variables Reference
+
+### Required Variables
+
+<AccordionGroup>
+  <Accordion title="DATABASE_URL">
+    **Type:** `string`
+
+    PostgreSQL connection string used by Sequelize to connect to your database.
+
+    **Format:**
+    ```
+    postgres://[username]:[password]@[host]:[port]/[database]
+    ```
+
+    **Example:**
+    ```
+    DATABASE_URL=postgres://postgres:root@127.0.0.1:5432/myapp_dev
+    ```
+
+    This variable is loaded in `src/utils/connection.js:4` and passed directly to the Sequelize constructor.
+  </Accordion>
+</AccordionGroup>
+
+### Optional Variables
+
+<AccordionGroup>
+  <Accordion title="PORT">
+    **Type:** `number`
+
+    **Default:** `8080`
+
+    The port number on which the Express server will listen.
+
+    **Example:**
+    ```
+    PORT=3000
+    ```
+
+    Referenced in `src/server.js:4`:
+    ```javascript
+    const PORT = process.env.PORT || 8080;
+    ```
+  </Accordion>
+
+  <Accordion title="JWT_SECRET (Recommended for Authentication)">
+    **Type:** `string`
+
+    Secret key for signing JSON Web Tokens. Required if you implement JWT authentication.
+
+    **Example:**
+    ```
+    JWT_SECRET=your-super-secret-key-change-this-in-production
+    ```
+
+    <Warning>
+      Use a strong, randomly generated secret in production. Never commit this to version control.
+    </Warning>
+  </Accordion>
+
+  <Accordion title="CLOUDINARY_URL (Optional)">
+    **Type:** `string`
+
+    Cloudinary connection string for media upload functionality. Only needed if you're using Cloudinary.
+
+    **Example:**
+    ```
+    CLOUDINARY_URL=cloudinary://api_key:api_secret@cloud_name
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Loading Environment Variables
+
+The template uses `dotenv` to load environment variables. This is configured at the top of `src/app.js:6`:
+
+```javascript src/app.js
+require('dotenv').config();
+```
+
+<Note>
+  Environment variables are loaded when the application starts, so you'll need to restart your server after making changes to `.env`.
+</Note>
+
+## Environment-Specific Configuration
+
+### Development
+
+For local development, create a `.env` file in the root directory:
+
+```bash .env
+DATABASE_URL=postgres://postgres:root@127.0.0.1:5432/myapp_dev
+PORT=8080
+```
+
+### Production
+
+For production deployments, set environment variables through your hosting platform:
+
+- **Heroku:** Use `heroku config:set DATABASE_URL=...`
+- **Railway:** Configure in the Variables tab
+- **Render:** Set in the Environment section
+- **Docker:** Use `--env-file` or pass with `-e` flags
+
+<Warning>
+  Never commit `.env` files to version control. The `.gitignore` should already exclude these files.
+</Warning>
+
+## Verifying Your Setup
+
+After configuring your environment variables, test the connection:
+
+```bash
+npm run dev
+```
+
+You should see:
+```
+DB connected
+Server running on port 8080
+Link http://localhost:8080
+```
+
+If you see "DB connected", your `DATABASE_URL` is configured correctly (`src/server.js:9`).
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Database connection failed">
+    - Verify PostgreSQL is running locally
+    - Check username, password, and database name in `DATABASE_URL`
+    - Ensure the database exists (create it with `createdb <nombre_db>`)
+    - Verify the port (default PostgreSQL port is 5432)
+  </Accordion>
+
+  <Accordion title="Port already in use">
+    If you see `EADDRINUSE` error:
+    - Change the `PORT` in your `.env` file
+    - Or kill the process using the port: `lsof -ti:8080 | xargs kill`
+  </Accordion>
+
+  <Accordion title="Environment variables not loading">
+    - Ensure `.env` is in the root directory (same level as `package.json`)
+    - Restart your development server
+    - Check for syntax errors in `.env` (no quotes needed for values)
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Creating Routes" icon="route" href="/guides/creating-routes">
+    Learn how to add new API endpoints
+  </Card>
+  <Card title="Database Models" icon="database" href="/guides/database-models">
+    Define Sequelize models for your data
+  </Card>
+</CardGroup>

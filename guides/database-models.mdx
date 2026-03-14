@@ -1,0 +1,492 @@
+---
+title: 'Database Models'
+description: 'Create and manage Sequelize models in your Backend Template'
+icon: 'database'
+---
+
+## Overview
+
+The Backend Template uses Sequelize as its ORM (Object-Relational Mapping) library. This guide shows you how to create models, define relationships, and interact with your PostgreSQL database.
+
+## Database Connection
+
+The database connection is configured in `src/utils/connection.js:1-6`:
+
+```javascript src/utils/connection.js
+const { Sequelize } = require('sequelize');
+require('dotenv').config();
+
+const sequelize = new Sequelize(process.env.DATABASE_URL, { logging: false })
+
+module.exports = sequelize;
+```
+
+This connection is used when the server starts (`src/server.js:8`):
+
+```javascript src/server.js
+sequelize.sync();
+console.log("DB connected");
+```
+
+## Creating Your First Model
+
+<Steps>
+  <Step title="Create a models directory">
+    Create a `models` folder in `src/`:
+
+    ```bash
+    mkdir src/models
+    ```
+  </Step>
+
+  <Step title="Define your model">
+    Create a new model file:
+
+    ```javascript src/models/User.js
+    const { DataTypes } = require('sequelize');
+    const sequelize = require('../utils/connection');
+
+    const User = sequelize.define('user', {
+        firstName: {
+            type: DataTypes.STRING,
+            allowNull: false,
+            validate: {
+                notNull: {
+                    msg: 'First name is required'
+                },
+                notEmpty: {
+                    msg: 'First name cannot be empty'
+                }
+            }
+        },
+        lastName: {
+            type: DataTypes.STRING,
+            allowNull: false
+        },
+        email: {
+            type: DataTypes.STRING,
+            allowNull: false,
+            unique: true,
+            validate: {
+                isEmail: {
+                    msg: 'Must be a valid email address'
+                }
+            }
+        },
+        password: {
+            type: DataTypes.STRING,
+            allowNull: false
+        },
+        age: {
+            type: DataTypes.INTEGER,
+            validate: {
+                min: {
+                    args: [18],
+                    msg: 'Must be at least 18 years old'
+                }
+            }
+        },
+        isActive: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: true
+        }
+    });
+
+    module.exports = User;
+    ```
+  </Step>
+
+  <Step title="Use the model in routes">
+    Import and use your model in route handlers:
+
+    ```javascript src/routes/user.routes.js
+    const User = require('../models/User');
+    const catchError = require('../utils/catchError');
+
+    router.get('/', catchError(async (req, res) => {
+        const users = await User.findAll();
+        return res.json(users);
+    }));
+    ```
+  </Step>
+</Steps>
+
+## Data Types
+
+Sequelize supports various PostgreSQL data types:
+
+<AccordionGroup>
+  <Accordion title="String Types">
+    ```javascript
+    name: DataTypes.STRING,           // VARCHAR(255)
+    bio: DataTypes.TEXT,              // TEXT (unlimited length)
+    country: DataTypes.STRING(2),     // VARCHAR(2)
+    ```
+  </Accordion>
+
+  <Accordion title="Numeric Types">
+    ```javascript
+    age: DataTypes.INTEGER,           // INTEGER
+    price: DataTypes.FLOAT,           // FLOAT
+    amount: DataTypes.DECIMAL(10, 2), // DECIMAL with precision
+    bigNumber: DataTypes.BIGINT,      // BIGINT
+    ```
+  </Accordion>
+
+  <Accordion title="Date & Time">
+    ```javascript
+    birthday: DataTypes.DATEONLY,     // DATE (YYYY-MM-DD)
+    createdAt: DataTypes.DATE,        // TIMESTAMP
+    ```
+  </Accordion>
+
+  <Accordion title="Boolean & Other">
+    ```javascript
+    isActive: DataTypes.BOOLEAN,      // BOOLEAN
+    metadata: DataTypes.JSON,         // JSON
+    tags: DataTypes.ARRAY(DataTypes.STRING), // ARRAY
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Validations
+
+Sequelize provides built-in and custom validations:
+
+```javascript src/models/User.js
+const User = sequelize.define('user', {
+    email: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true,
+        validate: {
+            isEmail: true,              // Built-in email validation
+            notEmpty: true              // Cannot be empty string
+        }
+    },
+    username: {
+        type: DataTypes.STRING,
+        validate: {
+            len: [3, 20],               // Length between 3-20
+            isAlphanumeric: true        // Only letters and numbers
+        }
+    },
+    age: {
+        type: DataTypes.INTEGER,
+        validate: {
+            min: 18,                    // Minimum value
+            max: 120                    // Maximum value
+        }
+    },
+    website: {
+        type: DataTypes.STRING,
+        validate: {
+            isUrl: true                 // Must be valid URL
+        }
+    },
+    password: {
+        type: DataTypes.STRING,
+        validate: {
+            customValidator(value) {     // Custom validation
+                if (value.length < 8) {
+                    throw new Error('Password must be at least 8 characters');
+                }
+            }
+        }
+    }
+});
+```
+
+<Note>
+  Validation errors are automatically caught and formatted by the error handler in `src/utils/errorHandler.js:2-8`:
+  ```javascript
+  if(error.name === 'SequelizeValidationError') {
+      const errObj = {};
+      error.errors.map(er => {
+          errObj[er.path] = er.message;
+      })
+      return res.status(400).json(errObj);
+  }
+  ```
+</Note>
+
+## Model Relationships
+
+Define associations between models:
+
+### One-to-Many
+
+```javascript src/models/index.js
+const User = require('./User');
+const Post = require('./Post');
+
+// A user has many posts
+User.hasMany(Post, { foreignKey: 'userId', as: 'posts' });
+// A post belongs to a user
+Post.belongsTo(User, { foreignKey: 'userId', as: 'author' });
+
+module.exports = { User, Post };
+```
+
+Usage in routes:
+
+```javascript src/routes/user.routes.js
+const { User, Post } = require('../models');
+
+// Get user with all their posts
+router.get('/:id', catchError(async (req, res) => {
+    const user = await User.findByPk(req.params.id, {
+        include: ['posts']
+    });
+    return res.json(user);
+}));
+```
+
+### Many-to-Many
+
+```javascript src/models/index.js
+const Student = require('./Student');
+const Course = require('./Course');
+const Enrollment = require('./Enrollment');
+
+// Students and Courses have a many-to-many relationship through Enrollment
+Student.belongsToMany(Course, { 
+    through: Enrollment, 
+    foreignKey: 'studentId',
+    as: 'courses'
+});
+
+Course.belongsToMany(Student, { 
+    through: Enrollment, 
+    foreignKey: 'courseId',
+    as: 'students'
+});
+
+module.exports = { Student, Course, Enrollment };
+```
+
+### One-to-One
+
+```javascript src/models/index.js
+const User = require('./User');
+const Profile = require('./Profile');
+
+// One-to-one relationship
+User.hasOne(Profile, { foreignKey: 'userId', as: 'profile' });
+Profile.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+module.exports = { User, Profile };
+```
+
+## CRUD Operations
+
+### Create
+
+```javascript
+// Create a single record
+const user = await User.create({
+    firstName: 'John',
+    lastName: 'Doe',
+    email: 'john@example.com',
+    password: 'hashedpassword'
+});
+
+// Bulk create
+const users = await User.bulkCreate([
+    { firstName: 'Jane', lastName: 'Doe', email: 'jane@example.com' },
+    { firstName: 'Bob', lastName: 'Smith', email: 'bob@example.com' }
+]);
+```
+
+### Read
+
+```javascript
+// Find all
+const users = await User.findAll();
+
+// Find by primary key
+const user = await User.findByPk(1);
+
+// Find one with conditions
+const user = await User.findOne({ where: { email: 'john@example.com' } });
+
+// Find with conditions
+const activeUsers = await User.findAll({
+    where: { isActive: true },
+    order: [['createdAt', 'DESC']],
+    limit: 10
+});
+
+// Find with relationships
+const user = await User.findByPk(1, {
+    include: ['posts', 'profile']
+});
+```
+
+### Update
+
+```javascript
+// Update instance
+const user = await User.findByPk(1);
+user.firstName = 'Jane';
+await user.save();
+
+// Or use update method
+await user.update({ firstName: 'Jane' });
+
+// Bulk update
+await User.update(
+    { isActive: false },
+    { where: { lastLogin: { [Op.lt]: new Date('2023-01-01') } } }
+);
+```
+
+### Delete
+
+```javascript
+// Delete instance
+const user = await User.findByPk(1);
+await user.destroy();
+
+// Bulk delete
+await User.destroy({
+    where: { isActive: false }
+});
+```
+
+## Query Operators
+
+Use Sequelize operators for complex queries:
+
+```javascript
+const { Op } = require('sequelize');
+
+// Greater than
+const adults = await User.findAll({
+    where: { age: { [Op.gt]: 18 } }
+});
+
+// Like (pattern matching)
+const users = await User.findAll({
+    where: { email: { [Op.like]: '%@gmail.com' } }
+});
+
+// In array
+const users = await User.findAll({
+    where: { id: { [Op.in]: [1, 2, 3, 4] } }
+});
+
+// Multiple conditions
+const users = await User.findAll({
+    where: {
+        [Op.and]: [
+            { age: { [Op.gte]: 18 } },
+            { isActive: true }
+        ]
+    }
+});
+```
+
+## Hooks (Lifecycle Events)
+
+Add hooks to run code before/after database operations:
+
+```javascript src/models/User.js
+const bcrypt = require('bcrypt');
+
+const User = sequelize.define('user', {
+    // ... fields
+}, {
+    hooks: {
+        beforeCreate: async (user) => {
+            // Hash password before saving
+            user.password = await bcrypt.hash(user.password, 10);
+        },
+        beforeUpdate: async (user) => {
+            // Hash password if it was changed
+            if (user.changed('password')) {
+                user.password = await bcrypt.hash(user.password, 10);
+            }
+        }
+    }
+});
+```
+
+Available hooks:
+- `beforeValidate` / `afterValidate`
+- `beforeCreate` / `afterCreate`
+- `beforeUpdate` / `afterUpdate`
+- `beforeDestroy` / `afterDestroy`
+- `beforeSave` / `afterSave`
+
+## Database Sync
+
+The server syncs models with the database on startup (`src/server.js:8`):
+
+```javascript src/server.js
+sequelize.sync();
+```
+
+<Warning>
+  In production, use migrations instead of `sync()`. The `sync()` method can cause data loss if used with `{ force: true }`.
+</Warning>
+
+Sync options:
+
+```javascript
+// Create tables if they don't exist
+sequelize.sync();
+
+// Drop and recreate tables (DESTROYS DATA!)
+sequelize.sync({ force: true });
+
+// Update tables to match models (add missing columns)
+sequelize.sync({ alter: true });
+```
+
+## Error Handling
+
+The error handler (`src/utils/errorHandler.js`) automatically processes database errors:
+
+<CodeGroup>
+```javascript Validation Errors
+// Handled by src/utils/errorHandler.js:2-8
+if(error.name === 'SequelizeValidationError') {
+    const errObj = {};
+    error.errors.map(er => {
+        errObj[er.path] = er.message;
+    })
+    return res.status(400).json(errObj);
+}
+```
+
+```javascript Foreign Key Errors
+// Handled by src/utils/errorHandler.js:9-14
+if(error.name === 'SequelizeForeignKeyConstraintError'){
+    return res.status(400).json({ 
+        message: error.message,
+        error: error.parent.detail
+    });
+}
+```
+
+```javascript Database Errors
+// Handled by src/utils/errorHandler.js:15-19
+if(error.name === 'SequelizeDatabaseError'){
+    return res.status(400).json({ 
+        message: error.message
+    });
+}
+```
+</CodeGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Creating Routes" icon="route" href="/guides/creating-routes">
+    Use models in your API routes
+  </Card>
+  <Card title="Authentication" icon="lock" href="/guides/authentication">
+    Implement user authentication with models
+  </Card>
+</CardGroup>

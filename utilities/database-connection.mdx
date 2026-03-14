@@ -1,0 +1,303 @@
+---
+title: Database Connection
+description: Sequelize database connection configuration and setup
+---
+
+## Overview
+
+The `connection.js` utility creates and exports a configured Sequelize instance for connecting to your PostgreSQL database. This instance is used throughout the application for all database operations.
+
+## Source Code
+
+```javascript src/utils/connection.js
+const { Sequelize } = require('sequelize');
+require('dotenv').config();
+
+const sequelize = new Sequelize(process.env.DATABASE_URL, { logging: false })
+
+module.exports = sequelize;
+```
+
+## Configuration
+
+### Environment Variables
+
+The connection requires a `DATABASE_URL` environment variable in your `.env` file:
+
+```bash .env
+DATABASE_URL=postgres://username:password@host:port/database
+```
+
+<ParamField path="DATABASE_URL" type="string" required>
+  PostgreSQL connection string in the format: `postgres://username:password@host:port/database`
+</ParamField>
+
+### Sequelize Options
+
+<ParamField path="logging" type="boolean" default="false">
+  Disables SQL query logging to the console. Set to `true` or pass `console.log` to enable logging during development.
+</ParamField>
+
+## Usage
+
+### Starting the Server
+
+The connection is initialized when the server starts:
+
+```javascript src/server.js
+const app = require('./app');
+const sequelize = require('./utils/connection');
+
+const PORT = process.env.PORT || 8080;
+
+const main = async () => {
+    try {
+        sequelize.sync();
+        console.log("DB connected");
+        app.listen(PORT);
+        console.log(`👉 Server running on port ${PORT}`);
+        console.log(`👉 Link http://localhost:${PORT}`);
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+main();
+```
+
+### Defining Models
+
+Import the connection in your model files:
+
+```javascript src/models/User.js
+const { DataTypes } = require('sequelize');
+const sequelize = require('../utils/connection');
+
+const User = sequelize.define('User', {
+    id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true
+    },
+    email: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true,
+        validate: {
+            isEmail: true
+        }
+    },
+    password: {
+        type: DataTypes.STRING,
+        allowNull: false
+    }
+});
+
+module.exports = User;
+```
+
+### Database Operations
+
+Use the models created with this connection for database operations:
+
+```javascript
+const User = require('../models/User');
+
+// Create
+const newUser = await User.create({
+    email: 'user@example.com',
+    password: 'hashedPassword'
+});
+
+// Read
+const users = await User.findAll();
+const user = await User.findByPk(1);
+
+// Update
+await user.update({ email: 'newemail@example.com' });
+
+// Delete
+await user.destroy();
+```
+
+## Database Synchronization
+
+### sync()
+
+Synchronizes all models with the database:
+
+```javascript
+// Creates tables if they don't exist
+sequelize.sync();
+
+// Drops existing tables and recreates them (⚠️ DESTRUCTIVE)
+sequelize.sync({ force: true });
+
+// Alters tables to match models (safer than force)
+sequelize.sync({ alter: true });
+```
+
+<Warning>
+  Never use `sync({ force: true })` in production as it will drop all existing tables and data!
+</Warning>
+
+### authenticate()
+
+Test the database connection:
+
+```javascript
+try {
+    await sequelize.authenticate();
+    console.log('Connection has been established successfully.');
+} catch (error) {
+    console.error('Unable to connect to the database:', error);
+}
+```
+
+## Connection Options
+
+### Enabling Logging
+
+For development, you might want to see SQL queries:
+
+```javascript
+const sequelize = new Sequelize(process.env.DATABASE_URL, { 
+    logging: console.log 
+});
+```
+
+### Connection Pool
+
+For production, configure connection pooling:
+
+```javascript
+const sequelize = new Sequelize(process.env.DATABASE_URL, {
+    logging: false,
+    pool: {
+        max: 5,
+        min: 0,
+        acquire: 30000,
+        idle: 10000
+    }
+});
+```
+
+<ParamField path="pool.max" type="number" default="5">
+  Maximum number of connections in pool
+</ParamField>
+
+<ParamField path="pool.min" type="number" default="0">
+  Minimum number of connections in pool
+</ParamField>
+
+<ParamField path="pool.acquire" type="number" default="30000">
+  Maximum time (ms) to wait for a connection
+</ParamField>
+
+<ParamField path="pool.idle" type="number" default="10000">
+  Maximum time (ms) a connection can be idle before being released
+</ParamField>
+
+### Dialect-Specific Options
+
+```javascript
+const sequelize = new Sequelize(process.env.DATABASE_URL, {
+    logging: false,
+    dialectOptions: {
+        ssl: {
+            require: true,
+            rejectUnauthorized: false // For services like Heroku
+        }
+    }
+});
+```
+
+## Environment Setup
+
+### Local Development
+
+```bash .env
+DATABASE_URL=postgres://postgres:password@localhost:5432/myapp_dev
+PORT=8080
+```
+
+### Production
+
+```bash .env
+DATABASE_URL=postgres://user:password@production-host:5432/myapp_prod
+PORT=8080
+NODE_ENV=production
+```
+
+<Tip>
+  Use different databases for development, testing, and production to prevent accidental data loss.
+</Tip>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Connection refused">
+    **Error:** `ECONNREFUSED` or `connection refused`
+    
+    **Solutions:**
+    - Verify PostgreSQL is running: `pg_isready`
+    - Check the host and port in your `DATABASE_URL`
+    - Ensure firewall allows the connection
+    - Verify database exists: `psql -l`
+  </Accordion>
+
+  <Accordion title="Authentication failed">
+    **Error:** `password authentication failed`
+    
+    **Solutions:**
+    - Double-check username and password in `DATABASE_URL`
+    - Ensure the user has proper permissions
+    - Check `pg_hba.conf` authentication settings
+  </Accordion>
+
+  <Accordion title="Database does not exist">
+    **Error:** `database "myapp" does not exist`
+    
+    **Solutions:**
+    - Create the database: `createdb myapp`
+    - Or using SQL: `CREATE DATABASE myapp;`
+  </Accordion>
+
+  <Accordion title="SSL connection required">
+    **Error:** `no pg_hba.conf entry for host` or SSL errors
+    
+    **Solution:**
+    Add SSL configuration:
+    ```javascript
+    const sequelize = new Sequelize(process.env.DATABASE_URL, {
+        logging: false,
+        dialectOptions: {
+            ssl: {
+                require: true,
+                rejectUnauthorized: false
+            }
+        }
+    });
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Environment Variables" icon="key">
+    Never hardcode credentials. Always use `.env` files and keep them out of version control.
+  </Card>
+  
+  <Card title="Connection Pooling" icon="layer-group">
+    Configure appropriate pool settings for production to handle concurrent requests efficiently.
+  </Card>
+  
+  <Card title="Error Handling" icon="triangle-exclamation">
+    Always wrap database operations in try-catch blocks or use the catchError utility.
+  </Card>
+  
+  <Card title="Migration Strategy" icon="arrows-rotate">
+    Use Sequelize migrations in production instead of `sync()` to manage schema changes safely.
+  </Card>
+</CardGroup>

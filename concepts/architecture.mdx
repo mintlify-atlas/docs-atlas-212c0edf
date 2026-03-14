@@ -1,0 +1,152 @@
+---
+title: Architecture
+description: Understand the project structure and how components work together
+---
+
+## Overview
+
+The Backend Template follows a modular Express.js architecture with clear separation of concerns. The application is structured to provide a solid foundation for building scalable REST APIs with PostgreSQL database support.
+
+## Project Structure
+
+```
+src/
+├── app.js              # Express application setup
+├── server.js           # Server initialization and database connection
+├── routes/
+│   └── index.js        # Route definitions
+└── utils/
+    ├── connection.js   # Database connection setup
+    ├── errorHandler.js # Global error handling middleware
+    └── catchError.js   # Async error wrapper utility
+```
+
+## Application Flow
+
+The application follows this initialization sequence:
+
+<Steps>
+  <Step title="Database Connection">
+    Sequelize connects to PostgreSQL using the `DATABASE_URL` environment variable
+  </Step>
+  <Step title="Database Synchronization">
+    Models are synchronized with the database schema
+  </Step>
+  <Step title="Server Start">
+    Express server starts listening on the specified port
+  </Step>
+</Steps>
+
+## Core Components
+
+### Application Setup (app.js)
+
+The Express application is configured with essential middleware and security features:
+
+```javascript src/app.js
+const express = require('express');
+const helmet = require('helmet');
+const cors = require('cors');
+const router = require('./routes');
+const errorHandler = require('./utils/errorHandler');
+require('dotenv').config();
+
+const app = express();
+
+// Middlewares 
+app.use(express.json());
+app.use(helmet({
+    crossOriginResourcePolicy: false,
+}));
+app.use(cors());
+
+app.use(router);
+app.get('/', (req, res) => {
+    return res.send("Welcome to express!");
+})
+
+// middlewares después de las rutas
+app.use(errorHandler)
+
+module.exports = app;
+```
+
+### Server Initialization (server.js)
+
+The server handles database connection and starts the Express application:
+
+```javascript src/server.js
+const app = require('./app');
+const sequelize = require('./utils/connection');
+
+const PORT = process.env.PORT || 8080;
+
+const main = async () => {
+    try {
+        sequelize.sync();
+        console.log("DB connected");
+        app.listen(PORT);
+        console.log(`👉 Server running on port ${PORT}`);
+        console.log(`👉 Link http://localhost:${PORT}`);
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+main();
+```
+
+## Middleware Flow
+
+Requests flow through the application in this order:
+
+<Steps>
+  <Step title="Body Parser">
+    `express.json()` parses incoming JSON payloads
+  </Step>
+  <Step title="Security Headers">
+    `helmet()` sets secure HTTP headers
+  </Step>
+  <Step title="CORS">
+    `cors()` enables cross-origin resource sharing
+  </Step>
+  <Step title="Routes">
+    Request is routed to appropriate handlers
+  </Step>
+  <Step title="Error Handler">
+    Global error handler catches and formats errors
+  </Step>
+</Steps>
+
+<Info>
+The error handler middleware must be placed **after** all routes to properly catch errors from route handlers.
+</Info>
+
+## Environment Configuration
+
+The application uses `dotenv` to manage environment variables:
+
+- `DATABASE_URL` - PostgreSQL connection string
+- `PORT` - Server port (defaults to 8080)
+
+<Note>
+Make sure to create a `.env` file in the root directory with your configuration before running the application.
+</Note>
+
+## Design Patterns
+
+### Separation of Concerns
+
+- **app.js** - Application configuration and middleware setup
+- **server.js** - Server lifecycle and database initialization
+- **routes/** - HTTP endpoint definitions
+- **utils/** - Reusable utilities and middleware
+
+### Error Handling
+
+Errors are handled using two complementary utilities:
+
+1. **catchError** - Wraps async route handlers to forward errors
+2. **errorHandler** - Global middleware that formats error responses
+
+See the [Error Handling](/concepts/error-handling) guide for detailed information.

@@ -1,0 +1,302 @@
+---
+title: Error Handling
+description: Learn how errors are caught and handled throughout the application
+---
+
+## Overview
+
+The Backend Template implements a comprehensive error handling strategy using two complementary utilities:
+
+1. **catchError** - Wrapper for async route handlers
+2. **errorHandler** - Global error handling middleware
+
+This approach ensures all errors are caught and properly formatted for API responses.
+
+## Error Handler Middleware
+
+The global error handler is defined in `src/utils/errorHandler.js`:
+
+```javascript src/utils/errorHandler.js
+const errorHandler = (error, _req, res, _next) => {
+    if(error.name === 'SequelizeValidationError') {
+        const errObj = {};
+        error.errors.map(er => {
+            errObj[er.path] = er.message;
+        });
+        return res.status(400).json(errObj);
+    }
+    if(error.name === 'SequelizeForeignKeyConstraintError'){
+        return res.status(400).json({ 
+            message: error.message,
+            error: error.parent.detail
+        });
+    }
+    if(error.name === 'SequelizeDatabaseError'){
+        return res.status(400).json({ 
+            message: error.message
+        });
+    }
+    return res.status(500).json({
+        message: error.message,
+        error: error
+    });
+}
+
+module.exports = errorHandler;
+```
+
+### Error Types Handled
+
+<CardGroup cols={2}>
+  <Card title="Validation Errors" icon="circle-exclamation">
+    Returns field-specific validation errors as a structured object
+  </Card>
+  <Card title="Foreign Key Errors" icon="link-slash">
+    Handles database constraint violations with detailed messages
+  </Card>
+  <Card title="Database Errors" icon="database">
+    Catches general database operation errors
+  </Card>
+  <Card title="Generic Errors" icon="triangle-exclamation">
+    Fallback handler for unexpected errors (500 status)
+  </Card>
+</CardGroup>
+
+## Catch Error Wrapper
+
+The `catchError` utility wraps async route handlers to automatically forward errors to the error handler:
+
+```javascript src/utils/catchError.js
+const catchError = controller => {
+    return (req, res, next) => {
+        controller(req, res, next)
+            .catch(next);
+    }
+}
+
+module.exports = catchError
+```
+
+### How It Works
+
+<Steps>
+  <Step title="Wrap Controller">
+    The async controller function is wrapped by `catchError`
+  </Step>
+  <Step title="Execute Controller">
+    The controller executes with `req`, `res`, and `next` parameters
+  </Step>
+  <Step title="Catch Errors">
+    If the controller throws or rejects, `.catch(next)` forwards the error
+  </Step>
+  <Step title="Error Handler">
+    The error is passed to the global `errorHandler` middleware
+  </Step>
+</Steps>
+
+## Usage in Routes
+
+Here's how to use `catchError` in your route handlers:
+
+```javascript src/routes/user.routes.js
+const express = require('express');
+const router = express.Router();
+const catchError = require('../utils/catchError');
+const User = require('../models/User');
+
+// Without catchError (❌ errors not handled)
+router.get('/users', async (req, res) => {
+    const users = await User.findAll();
+    return res.json(users);
+});
+
+// With catchError (✅ errors properly handled)
+router.get('/users', catchError(async (req, res) => {
+    const users = await User.findAll();
+    return res.json(users);
+}));
+
+router.post('/users', catchError(async (req, res) => {
+    const newUser = await User.create(req.body);
+    return res.status(201).json(newUser);
+}));
+
+module.exports = router;
+```
+
+<Warning>
+  Always wrap async route handlers with `catchError` to ensure errors are properly caught and handled.
+</Warning>
+
+## Error Response Formats
+
+### Validation Error Response
+
+When model validation fails:
+
+```json
+{
+  "email": "Validation isEmail on email failed",
+  "firstName": "firstName cannot be null"
+}
+```
+
+### Foreign Key Constraint Error
+
+When a foreign key constraint is violated:
+
+```json
+{
+  "message": "Foreign key constraint error",
+  "error": "Key (user_id)=(999) is not present in table \"users\"."
+}
+```
+
+### Database Error
+
+For general database errors:
+
+```json
+{
+  "message": "Invalid input syntax for type integer: \"abc\""
+}
+```
+
+### Generic Error (500)
+
+For unexpected errors:
+
+```json
+{
+  "message": "Cannot read property 'name' of undefined",
+  "error": {
+    // Full error object
+  }
+}
+```
+
+## Registering the Error Handler
+
+The error handler must be registered **after** all routes in `app.js`:
+
+```javascript src/app.js
+const express = require('express');
+const router = require('./routes');
+const errorHandler = require('./utils/errorHandler');
+
+const app = express();
+
+// Middleware
+app.use(express.json());
+
+// Routes
+app.use(router);
+
+// Error handler MUST come after routes
+app.use(errorHandler);
+
+module.exports = app;
+```
+
+<Info>
+  Express error handling middleware must have exactly 4 parameters: `(error, req, res, next)`. This signature tells Express it's an error handler.
+</Info>
+
+## Custom Error Examples
+
+### Throwing Custom Errors
+
+```javascript
+router.get('/users/:id', catchError(async (req, res) => {
+    const user = await User.findByPk(req.params.id);
+    
+    if (!user) {
+        const error = new Error('User not found');
+        error.name = 'NotFoundError';
+        throw error;
+    }
+    
+    return res.json(user);
+}));
+```
+
+### Extending the Error Handler
+
+Add custom error handling for your application:
+
+```javascript src/utils/errorHandler.js
+const errorHandler = (error, _req, res, _next) => {
+    // Custom error type
+    if(error.name === 'NotFoundError') {
+        return res.status(404).json({ 
+            message: error.message 
+        });
+    }
+    
+    if(error.name === 'UnauthorizedError') {
+        return res.status(401).json({ 
+            message: 'Authentication required' 
+        });
+    }
+    
+    // Sequelize errors
+    if(error.name === 'SequelizeValidationError') {
+        const errObj = {};
+        error.errors.map(er => {
+            errObj[er.path] = er.message;
+        });
+        return res.status(400).json(errObj);
+    }
+    
+    // Default fallback
+    return res.status(500).json({
+        message: error.message,
+        error: error
+    });
+}
+
+module.exports = errorHandler;
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always Use catchError">
+    Wrap all async route handlers with `catchError` to prevent unhandled promise rejections:
+    
+    ```javascript
+    router.post('/resource', catchError(async (req, res) => {
+        // Your async code here
+    }));
+    ```
+  </Accordion>
+
+  <Accordion title="Provide Meaningful Error Messages">
+    Create descriptive error messages that help clients understand what went wrong:
+    
+    ```javascript
+    if (!user) {
+        throw new Error(`User with ID ${req.params.id} not found`);
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Use Appropriate Status Codes">
+    - `400` - Bad Request (validation, malformed data)
+    - `401` - Unauthorized (authentication required)
+    - `403` - Forbidden (insufficient permissions)
+    - `404` - Not Found (resource doesn't exist)
+    - `500` - Internal Server Error (unexpected errors)
+  </Accordion>
+
+  <Accordion title="Don't Expose Sensitive Information">
+    In production, avoid sending full error stack traces to clients. Consider environment-based error responses:
+    
+    ```javascript
+    return res.status(500).json({
+        message: error.message,
+        ...(process.env.NODE_ENV === 'development' && { error })
+    });
+    ```
+  </Accordion>
+</AccordionGroup>

@@ -1,0 +1,317 @@
+---
+title: 'Creating Routes'
+description: 'Learn how to add new API endpoints to your Backend Template application'
+icon: 'route'
+---
+
+## Overview
+
+Routes in the Backend Template are organized using Express Router. This guide shows you how to create new endpoints and integrate them into your application.
+
+## Route Architecture
+
+The template uses a centralized routing system:
+
+```
+src/
+├── routes/
+│   ├── index.js          # Main router (mounts all sub-routes)
+│   ├── user.routes.js    # Example: User routes
+│   └── post.routes.js    # Example: Post routes
+└── app.js                # Routes are mounted here
+```
+
+## Creating Your First Route
+
+<Steps>
+  <Step title="Create a route file">
+    Create a new file in `src/routes/` for your resource:
+
+    ```javascript src/routes/user.routes.js
+    const express = require('express');
+    const router = express.Router();
+    const catchError = require('../utils/catchError');
+
+    // GET /users
+    router.get('/', catchError(async (req, res) => {
+        const users = await User.findAll();
+        return res.json(users);
+    }));
+
+    // POST /users
+    router.post('/', catchError(async (req, res) => {
+        const user = await User.create(req.body);
+        return res.status(201).json(user);
+    }));
+
+    // GET /users/:id
+    router.get('/:id', catchError(async (req, res) => {
+        const user = await User.findByPk(req.params.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+        return res.json(user);
+    }));
+
+    module.exports = router;
+    ```
+  </Step>
+
+  <Step title="Register the route in the main router">
+    Import and mount your route in `src/routes/index.js:4-5`:
+
+    ```javascript src/routes/index.js
+    const express = require('express');
+    const router = express.Router();
+    const userRouter = require('./user.routes');
+
+    // Mount routes
+    router.use('/users', userRouter);
+
+    module.exports = router;
+    ```
+
+    <Note>
+      The main router is already connected to the Express app in `src/app.js:18`:
+      ```javascript
+      app.use(router);
+      ```
+    </Note>
+  </Step>
+
+  <Step title="Test your route">
+    Start the development server and test your endpoint:
+
+    ```bash
+    npm run dev
+    ```
+
+    Test with curl:
+    ```bash
+    curl http://localhost:8080/users
+    ```
+  </Step>
+</Steps>
+
+## Using the catchError Wrapper
+
+The template includes a `catchError` utility that automatically handles async errors in route handlers.
+
+### Why Use catchError?
+
+Without `catchError`, you'd need try-catch blocks in every route:
+
+<CodeGroup>
+```javascript Without catchError (verbose)
+router.get('/:id', async (req, res, next) => {
+    try {
+        const user = await User.findByPk(req.params.id);
+        return res.json(user);
+    } catch (error) {
+        next(error);
+    }
+});
+```
+
+```javascript With catchError (clean)
+router.get('/:id', catchError(async (req, res) => {
+    const user = await User.findByPk(req.params.id);
+    return res.json(user);
+}));
+```
+</CodeGroup>
+
+### How catchError Works
+
+The utility is defined in `src/utils/catchError.js:1-8`:
+
+```javascript src/utils/catchError.js
+const catchError = controller => {
+    return (req, res, next) => {
+        controller(req, res, next)
+            .catch(next);
+    }
+}
+
+module.exports = catchError
+```
+
+It wraps your async controller and automatically passes errors to Express error handlers.
+
+<Warning>
+  Always use `catchError` with async route handlers. Without it, unhandled promise rejections can crash your server.
+</Warning>
+
+## Complete Route Example
+
+Here's a complete CRUD route setup for a blog post resource:
+
+```javascript src/routes/post.routes.js
+const express = require('express');
+const router = express.Router();
+const catchError = require('../utils/catchError');
+const Post = require('../models/Post');
+
+// List all posts
+router.get('/', catchError(async (req, res) => {
+    const posts = await Post.findAll({
+        order: [['createdAt', 'DESC']]
+    });
+    return res.json(posts);
+}));
+
+// Create a new post
+router.post('/', catchError(async (req, res) => {
+    const { title, content, authorId } = req.body;
+    const post = await Post.create({ title, content, authorId });
+    return res.status(201).json(post);
+}));
+
+// Get a single post
+router.get('/:id', catchError(async (req, res) => {
+    const post = await Post.findByPk(req.params.id, {
+        include: ['author', 'comments']
+    });
+    if (!post) {
+        return res.status(404).json({ message: 'Post not found' });
+    }
+    return res.json(post);
+}));
+
+// Update a post
+router.put('/:id', catchError(async (req, res) => {
+    const post = await Post.findByPk(req.params.id);
+    if (!post) {
+        return res.status(404).json({ message: 'Post not found' });
+    }
+    await post.update(req.body);
+    return res.json(post);
+}));
+
+// Delete a post
+router.delete('/:id', catchError(async (req, res) => {
+    const post = await Post.findByPk(req.params.id);
+    if (!post) {
+        return res.status(404).json({ message: 'Post not found' });
+    }
+    await post.destroy();
+    return res.status(204).send();
+}));
+
+module.exports = router;
+```
+
+Then register it in `src/routes/index.js`:
+
+```javascript src/routes/index.js
+const express = require('express');
+const router = express.Router();
+const userRouter = require('./user.routes');
+const postRouter = require('./post.routes');
+
+router.use('/users', userRouter);
+router.use('/posts', postRouter);
+
+module.exports = router;
+```
+
+## Route Organization Patterns
+
+### RESTful Routes
+
+Follow REST conventions for predictable APIs:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/posts` | List all posts |
+| POST | `/posts` | Create a post |
+| GET | `/posts/:id` | Get a single post |
+| PUT | `/posts/:id` | Update a post |
+| PATCH | `/posts/:id` | Partial update |
+| DELETE | `/posts/:id` | Delete a post |
+
+### Nested Routes
+
+For related resources, use nested routes:
+
+```javascript src/routes/post.routes.js
+// Get comments for a post
+router.get('/:id/comments', catchError(async (req, res) => {
+    const post = await Post.findByPk(req.params.id, {
+        include: ['comments']
+    });
+    if (!post) {
+        return res.status(404).json({ message: 'Post not found' });
+    }
+    return res.json(post.comments);
+}));
+
+// Create a comment on a post
+router.post('/:id/comments', catchError(async (req, res) => {
+    const comment = await Comment.create({
+        ...req.body,
+        postId: req.params.id
+    });
+    return res.status(201).json(comment);
+}));
+```
+
+## Error Handling in Routes
+
+Errors are automatically caught and processed by the error handler in `src/utils/errorHandler.js`:
+
+```javascript src/routes/user.routes.js
+router.post('/', catchError(async (req, res) => {
+    // Sequelize validation errors are automatically caught
+    // and formatted by errorHandler.js:2-8
+    const user = await User.create(req.body);
+    return res.status(201).json(user);
+}));
+```
+
+For custom errors:
+
+```javascript src/routes/user.routes.js
+router.get('/:id', catchError(async (req, res) => {
+    const user = await User.findByPk(req.params.id);
+    if (!user) {
+        const error = new Error('User not found');
+        error.status = 404;
+        throw error;
+    }
+    return res.json(user);
+}));
+```
+
+<Note>
+  The error handler middleware is registered after routes in `src/app.js:24`:
+  ```javascript
+  app.use(errorHandler)
+  ```
+</Note>
+
+## Request Body Parsing
+
+The template includes JSON body parsing middleware (`src/app.js:12`):
+
+```javascript src/app.js
+app.use(express.json());
+```
+
+This allows you to access request bodies:
+
+```javascript
+router.post('/users', catchError(async (req, res) => {
+    const { name, email, password } = req.body;
+    // ...
+}));
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Database Models" icon="database" href="/guides/database-models">
+    Define models to use in your routes
+  </Card>
+  <Card title="Middleware" icon="shield" href="/guides/middleware">
+    Add authentication and custom middleware
+  </Card>
+</CardGroup>

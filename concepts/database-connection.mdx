@@ -1,0 +1,200 @@
+---
+title: Database Connection
+description: Learn how the application connects to PostgreSQL using Sequelize ORM
+---
+
+## Overview
+
+The Backend Template uses [Sequelize](https://sequelize.org/) as the ORM (Object-Relational Mapping) tool to interact with PostgreSQL databases. The connection is configured through environment variables for flexibility across different environments.
+
+## Connection Setup
+
+The database connection is established in `src/utils/connection.js`:
+
+```javascript src/utils/connection.js
+const { Sequelize } = require('sequelize');
+require('dotenv').config();
+
+const sequelize = new Sequelize(process.env.DATABASE_URL, { logging: false })
+
+module.exports = sequelize;
+```
+
+### Configuration Options
+
+<ParamField path="DATABASE_URL" type="string" required>
+  PostgreSQL connection string in the format:
+  ```
+  postgresql://username:password@host:port/database
+  ```
+</ParamField>
+
+<ParamField path="logging" type="boolean" default="false">
+  Disables SQL query logging in the console. Set to `true` during development to see executed queries.
+</ParamField>
+
+## Connection String Format
+
+The `DATABASE_URL` environment variable should follow this format:
+
+```bash .env
+DATABASE_URL=postgresql://user:password@localhost:5432/mydatabase
+```
+
+<Accordion title="Connection String Components">
+  - **Protocol**: `postgresql://` or `postgres://`
+  - **Username**: Database user credentials
+  - **Password**: User password (URL-encoded if contains special characters)
+  - **Host**: Database server hostname or IP
+  - **Port**: PostgreSQL port (default: 5432)
+  - **Database**: Name of the database to connect to
+</Accordion>
+
+## Database Initialization
+
+The connection is initialized in `server.js` before starting the Express server:
+
+```javascript src/server.js
+const app = require('./app');
+const sequelize = require('./utils/connection');
+
+const PORT = process.env.PORT || 8080;
+
+const main = async () => {
+    try {
+        sequelize.sync();
+        console.log("DB connected");
+        app.listen(PORT);
+        console.log(`👉 Server running on port ${PORT}`);
+        console.log(`👉 Link http://localhost:${PORT}`);
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+main();
+```
+
+### What is `sequelize.sync()`?
+
+The `sync()` method synchronizes all defined models with the database:
+
+<CodeGroup>
+```javascript Basic Sync
+sequelize.sync();
+// Creates tables if they don't exist
+```
+
+```javascript Force Sync (Development)
+sequelize.sync({ force: true });
+// Drops and recreates all tables (⚠️ deletes data)
+```
+
+```javascript Alter Sync
+sequelize.sync({ alter: true });
+// Modifies tables to match model definitions
+```
+</CodeGroup>
+
+<Warning>
+  Never use `{ force: true }` in production as it will drop all existing tables and data!
+</Warning>
+
+## Using the Connection in Models
+
+Import the sequelize instance to define models:
+
+```javascript src/models/User.js
+const { DataTypes } = require('sequelize');
+const sequelize = require('../utils/connection');
+
+const User = sequelize.define('user', {
+    firstName: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    email: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true,
+        validate: {
+            isEmail: true
+        }
+    }
+});
+
+module.exports = User;
+```
+
+## Environment-Specific Configuration
+
+<Tabs>
+  <Tab title="Development">
+    ```bash .env.development
+    DATABASE_URL=postgresql://dev_user:dev_pass@localhost:5432/dev_db
+    PORT=8080
+    ```
+  </Tab>
+  <Tab title="Production">
+    ```bash .env.production
+    DATABASE_URL=postgresql://prod_user:prod_pass@db.example.com:5432/prod_db
+    PORT=3000
+    ```
+  </Tab>
+  <Tab title="Testing">
+    ```bash .env.test
+    DATABASE_URL=postgresql://test_user:test_pass@localhost:5432/test_db
+    PORT=8081
+    ```
+  </Tab>
+</Tabs>
+
+## Connection Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Connection Pooling">
+    Sequelize automatically manages connection pooling. You can customize pool settings:
+    
+    ```javascript
+    const sequelize = new Sequelize(process.env.DATABASE_URL, {
+        logging: false,
+        pool: {
+            max: 5,
+            min: 0,
+            acquire: 30000,
+            idle: 10000
+        }
+    });
+    ```
+  </Accordion>
+
+  <Accordion title="Handle Connection Errors">
+    Test the connection before starting your server:
+    
+    ```javascript
+    const main = async () => {
+        try {
+            await sequelize.authenticate();
+            console.log('Connection established successfully.');
+            sequelize.sync();
+            console.log("DB connected");
+            app.listen(PORT);
+        } catch (error) {
+            console.error('Unable to connect to database:', error);
+            process.exit(1);
+        }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Secure Your Credentials">
+    - Never commit `.env` files to version control
+    - Add `.env` to your `.gitignore` file
+    - Use different credentials for each environment
+    - URL-encode special characters in passwords
+  </Accordion>
+</AccordionGroup>
+
+<Info>
+  For more information on Sequelize configuration options, visit the [official Sequelize documentation](https://sequelize.org/docs/v6/getting-started/).
+</Info>

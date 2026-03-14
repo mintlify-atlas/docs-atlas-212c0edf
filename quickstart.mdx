@@ -1,80 +1,273 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get your Express server running with PostgreSQL in under 5 minutes
 ---
 
-## Get started in three steps
+## Get Started Fast
 
-Get your documentation site running locally and make your first customization.
+This guide will walk you through setting up a fully functional Express server with database connectivity and creating your first API endpoint.
 
-### Step 1: Set up your local environment
+<Steps>
+  <Step title="Clone and Install">
+    First, clone the repository and install dependencies:
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    <CodeGroup>
+    ```bash npm
+    git clone https://github.com/your-username/backend-template.git
+    cd backend-template
+    npm install
+    ```
 
-### Step 2: Deploy your changes
+    ```bash yarn
+    git clone https://github.com/your-username/backend-template.git
+    cd backend-template
+    yarn install
+    ```
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    ```bash pnpm
+    git clone https://github.com/your-username/backend-template.git
+    cd backend-template
+    pnpm install
+    ```
+    </CodeGroup>
+  </Step>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+  <Step title="Configure Environment">
+    Create a `.env` file in the root directory with your database credentials:
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    ```bash .env
+    DATABASE_URL=postgres://postgres:root@127.0.0.1:5432/your_database_name
+    PORT=8080
+    ```
 
-### Step 3: Go live
+    <Note>
+      Replace `your_database_name` with your PostgreSQL database name. Make sure PostgreSQL is running on your system.
+    </Note>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    The template uses the `.env.example` file as a reference:
 
-## Next steps
+    ```bash
+    cp .env.example .env
+    # Then edit .env with your database credentials
+    ```
+  </Step>
 
-Now that you have your docs running, explore these key features:
+  <Step title="Start the Server">
+    Run the development server with hot-reload:
+
+    <CodeGroup>
+    ```bash npm
+    npm run dev
+    ```
+
+    ```bash yarn
+    yarn dev
+    ```
+
+    ```bash pnpm
+    pnpm dev
+    ```
+    </CodeGroup>
+
+    You should see:
+
+    ```bash
+    DB connected
+    👉 Server running on port 8080
+    👉 Link http://localhost:8080
+    ```
+
+    <Note>
+      The `dev` script uses Nodemon, which automatically restarts the server when you make code changes.
+    </Note>
+  </Step>
+
+  <Step title="Test Your Server">
+    Open your browser or use curl to test the welcome route:
+
+    ```bash
+    curl http://localhost:8080
+    ```
+
+    You should receive:
+
+    ```
+    Welcome to express!
+    ```
+
+    The server is now running! This route is defined in `src/app.js:19-21`:
+
+    ```javascript src/app.js
+    app.get('/', (req, res) => {
+        return res.send("Welcome to express!");
+    })
+    ```
+  </Step>
+
+  <Step title="Create Your First Route">
+    Let's create a simple API endpoint. Open `src/routes/index.js` and add:
+
+    ```javascript src/routes/index.js
+    const express = require('express');
+    const router = express.Router();
+
+    // Your first API route
+    router.get('/api/hello', (req, res) => {
+        res.json({
+            message: 'Hello World!',
+            timestamp: new Date().toISOString(),
+            status: 'success'
+        });
+    });
+
+    module.exports = router;
+    ```
+
+    Test your new endpoint:
+
+    ```bash
+    curl http://localhost:8080/api/hello
+    ```
+
+    Response:
+
+    ```json
+    {
+      "message": "Hello World!",
+      "timestamp": "2026-03-14T10:30:00.000Z",
+      "status": "success"
+    }
+    ```
+  </Step>
+</Steps>
+
+## Understanding the Code
+
+### Application Architecture
+
+The template separates concerns into distinct files:
+
+<Tabs>
+  <Tab title="server.js">
+    **Entry Point** - Connects to the database and starts the server
+
+    ```javascript src/server.js
+    const app = require('./app');
+    const sequelize = require('./utils/connection');
+
+    const PORT = process.env.PORT || 8080;
+
+    const main = async () => {
+        try {
+            sequelize.sync();
+            console.log("DB connected");
+            app.listen(PORT);
+            console.log(`👉 Server running on port ${PORT}`);
+            console.log(`👉 Link http://localhost:${PORT}`);
+        } catch (error) {
+            console.log(error)
+        }
+    }
+
+    main();
+    ```
+
+    The `sequelize.sync()` call creates database tables based on your models.
+  </Tab>
+
+  <Tab title="app.js">
+    **App Configuration** - Sets up Express middleware and routing
+
+    ```javascript src/app.js
+    const express = require('express');
+    const helmet = require('helmet');
+    const cors = require('cors');
+    const router = require('./routes');
+    const errorHandler = require('./utils/errorHandler');
+    require('dotenv').config();
+
+    const app = express();
+
+    // Middlewares
+    app.use(express.json());
+    app.use(helmet({
+        crossOriginResourcePolicy: false,
+    }));
+    app.use(cors());
+
+    app.use(router);
+    app.get('/', (req, res) => {
+        return res.send("Welcome to express!");
+    })
+
+    // Error handling middleware (must be last)
+    app.use(errorHandler)
+
+    module.exports = app;
+    ```
+  </Tab>
+
+  <Tab title="connection.js">
+    **Database Setup** - Configures Sequelize with PostgreSQL
+
+    ```javascript src/utils/connection.js
+    const { Sequelize } = require('sequelize');
+    require('dotenv').config();
+
+    const sequelize = new Sequelize(process.env.DATABASE_URL, { 
+        logging: false 
+    })
+
+    module.exports = sequelize;
+    ```
+
+    The `logging: false` option disables SQL query logging in the console.
+  </Tab>
+</Tabs>
+
+## Error Handling
+
+The template includes built-in error handling for common Sequelize errors:
+
+```javascript src/utils/errorHandler.js
+const errorHandler = (error, _req, res, _next) => {
+    if(error.name === 'SequelizeValidationError') {
+        const errObj = {};
+        error.errors.map(er => {
+            errObj[er.path] = er.message;
+        })
+        return res.status(400).json(errObj);
+    }
+    if(error.name === 'SequelizeForeignKeyConstraintError'){
+        return res.status(400).json({ 
+            message: error.message,
+            error: error.parent.detail
+        });
+    }
+    return res.status(500).json({
+        message: error.message,
+        error: error
+    });
+}
+```
+
+<Warning>
+  For production environments, avoid exposing detailed error objects. Consider using environment-specific error responses.
+</Warning>
+
+## Next Steps
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Create Models" icon="table">
+    Define Sequelize models for your database tables
+  </Card>
+  <Card title="Add Controllers" icon="gear">
+    Implement business logic in controller functions
+  </Card>
+  <Card title="Authentication" icon="lock">
+    Use the included JWT and bcrypt utilities for auth
+  </Card>
+  <Card title="File Uploads" icon="cloud-arrow-up">
+    Configure Cloudinary for image/file handling
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

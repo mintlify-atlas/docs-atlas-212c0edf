@@ -1,0 +1,95 @@
+---
+title: Introduction
+description: A production-ready Express.js backend template with PostgreSQL integration, authentication utilities, and best practices built-in
+---
+
+## What is Backend Template?
+
+Backend Template is a pre-configured Express.js server designed to accelerate backend development. It provides a solid foundation with essential middleware, database connectivity, error handling, and security features out of the box.
+
+Instead of configuring Express, Sequelize, security headers, CORS, and error handling from scratch for every project, Backend Template gives you a clean, organized starting point that follows Node.js best practices.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Express 5.x" icon="bolt">
+    Built on the latest Express.js framework for high-performance APIs
+  </Card>
+  <Card title="PostgreSQL + Sequelize" icon="database">
+    Pre-configured ORM with PostgreSQL support for rapid database development
+  </Card>
+  <Card title="Security First" icon="shield">
+    Helmet.js integration for secure HTTP headers and CORS configuration
+  </Card>
+  <Card title="Error Handling" icon="triangle-exclamation">
+    Centralized error handler for Sequelize validation and database errors
+  </Card>
+  <Card title="Authentication Ready" icon="key">
+    JWT and bcrypt utilities included for implementing auth flows
+  </Card>
+  <Card title="Development Tools" icon="code">
+    Nodemon for hot-reload and organized project structure
+  </Card>
+</CardGroup>
+
+## Tech Stack
+
+The template is built with carefully selected, production-tested dependencies:
+
+- **Express.js 5.1.0** - Web framework
+- **Sequelize 6.37.7** - ORM for PostgreSQL
+- **PostgreSQL (pg 8.16.3)** - Database driver
+- **Helmet 8.1.0** - Security middleware
+- **CORS 2.8.5** - Cross-origin resource sharing
+- **dotenv 17.2.3** - Environment variable management
+- **bcrypt 6.0.0** - Password hashing
+- **jsonwebtoken 9.0.3** - JWT authentication
+- **Cloudinary 2.9.0** - Image/file upload support
+
+## When to Use Backend Template
+
+<Note>
+  This template is ideal for:
+  - RESTful APIs with PostgreSQL databases
+  - Authentication-based applications
+  - MVPs and prototypes requiring rapid development
+  - Learning Express.js best practices
+  - Projects requiring file upload capabilities
+</Note>
+
+<Warning>
+  Not recommended for:
+  - Serverless/Lambda functions (too heavyweight)
+  - NoSQL-only projects (configured for PostgreSQL)
+  - GraphQL-first APIs (requires additional setup)
+</Warning>
+
+## Project Structure
+
+The template follows a clean, modular architecture:
+
+```
+backend-template/
+├── src/
+│   ├── server.js          # Application entry point
+│   ├── app.js             # Express app configuration
+│   ├── routes/
+│   │   └── index.js       # Route definitions
+│   └── utils/
+│       ├── connection.js  # Database connection
+│       ├── errorHandler.js # Error middleware
+│       └── catchError.js  # Async error wrapper
+├── .env.example           # Environment template
+└── package.json
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get a server running in 5 minutes
+  </Card>
+  <Card title="Installation" icon="download" href="/installation">
+    Detailed setup and dependency guide
+  </Card>
+</CardGroup>

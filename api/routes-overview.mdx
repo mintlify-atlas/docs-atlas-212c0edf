@@ -1,0 +1,319 @@
+---
+title: 'Routes Overview'
+description: 'Router structure and how to organize API endpoints'
+---
+
+## Overview
+
+The application uses Express Router to organize API endpoints in a modular way. The main router is defined in `src/routes/index.js` and mounted in the Express application.
+
+## Router Setup
+
+The main router serves as the central hub for all API routes:
+
+```javascript src/routes/index.js
+const express = require('express');
+const router = express.Router();
+
+// colocar las rutas aquí 
+// router.use('/name',routerName) example
+
+module.exports = router;
+```
+
+## How Routes are Mounted
+
+In `src/app.js`, the router is mounted to handle all incoming requests:
+
+```javascript src/app.js
+const router = require('./routes');
+
+app.use(router);
+app.get('/', (req, res) => {
+    return res.send("Welcome to express!");
+})
+```
+
+<Note>
+  The root route `/` is defined separately in app.js. All other routes should be added through the router.
+</Note>
+
+## Adding New Route Groups
+
+To keep your code organized, create separate router files for different resources and mount them in the main router.
+
+### Step 1: Create a Resource Router
+
+Create a new file for your resource routes, for example `src/routes/users.router.js`:
+
+```javascript src/routes/users.router.js
+const express = require('express');
+const router = express.Router();
+const { getAll, create, getOne, remove, update } = require('../controllers/user.controllers');
+
+router.route('/')
+    .get(getAll)
+    .post(create);
+
+router.route('/:id')
+    .get(getOne)
+    .delete(remove)
+    .put(update);
+
+module.exports = router;
+```
+
+### Step 2: Mount in Main Router
+
+Add the resource router to `src/routes/index.js`:
+
+```javascript src/routes/index.js
+const express = require('express');
+const router = express.Router();
+const userRouter = require('./users.router');
+
+router.use('/users', userRouter);
+
+module.exports = router;
+```
+
+<ParamField path="/users" type="string">
+  The base path for all user-related endpoints. All routes in userRouter will be prefixed with `/users`.
+</ParamField>
+
+## Route Organization Pattern
+
+<Steps>
+  <Step title="Create Controller">
+    Create controller functions in `src/controllers/` to handle business logic:
+    
+    ```javascript src/controllers/user.controllers.js
+    const catchError = require('../utils/catchError');
+    const User = require('../models/User');
+    
+    const getAll = catchError(async(req, res) => {
+        const results = await User.findAll();
+        return res.json(results);
+    });
+    
+    const create = catchError(async(req, res) => {
+        const result = await User.create(req.body);
+        return res.status(201).json(result);
+    });
+    
+    module.exports = { getAll, create };
+    ```
+  </Step>
+  
+  <Step title="Create Router">
+    Create a router file in `src/routes/` that maps HTTP methods to controllers:
+    
+    ```javascript src/routes/users.router.js
+    const { getAll, create } = require('../controllers/user.controllers');
+    
+    router.route('/')
+        .get(getAll)
+        .post(create);
+    ```
+  </Step>
+  
+  <Step title="Mount Router">
+    Mount the router in `src/routes/index.js`:
+    
+    ```javascript
+    router.use('/users', userRouter);
+    ```
+  </Step>
+</Steps>
+
+## Multiple Resource Example
+
+Here's how to structure multiple resource routers:
+
+```javascript src/routes/index.js
+const express = require('express');
+const router = express.Router();
+
+// Import resource routers
+const userRouter = require('./users.router');
+const productRouter = require('./products.router');
+const orderRouter = require('./orders.router');
+const categoryRouter = require('./categories.router');
+
+// Mount routers
+router.use('/users', userRouter);
+router.use('/products', productRouter);
+router.use('/orders', orderRouter);
+router.use('/categories', categoryRouter);
+
+module.exports = router;
+```
+
+### Resulting Endpoint Structure
+
+<CodeGroup>
+```bash Users Endpoints
+GET    /users
+POST   /users
+GET    /users/:id
+PUT    /users/:id
+DELETE /users/:id
+```
+
+```bash Products Endpoints
+GET    /products
+POST   /products
+GET    /products/:id
+PUT    /products/:id
+DELETE /products/:id
+```
+
+```bash Orders Endpoints
+GET    /orders
+POST   /orders
+GET    /orders/:id
+PUT    /orders/:id
+DELETE /orders/:id
+```
+</CodeGroup>
+
+## Nested Routes
+
+For nested resources, you can create relationships between routes:
+
+```javascript src/routes/users.router.js
+const express = require('express');
+const router = express.Router();
+const { getAll, create, getOne, remove, update } = require('../controllers/user.controllers');
+const orderRouter = require('./orders.router');
+
+// Standard user routes
+router.route('/')
+    .get(getAll)
+    .post(create);
+
+router.route('/:id')
+    .get(getOne)
+    .delete(remove)
+    .put(update);
+
+// Nested route for user's orders
+router.use('/:userId/orders', orderRouter);
+
+module.exports = router;
+```
+
+This creates endpoints like:
+- `GET /users/:userId/orders` - Get all orders for a user
+- `POST /users/:userId/orders` - Create an order for a user
+
+## API Versioning
+
+For API versioning, you can namespace your routes:
+
+```javascript src/routes/index.js
+const express = require('express');
+const router = express.Router();
+
+const v1Router = require('./v1');
+const v2Router = require('./v2');
+
+router.use('/v1', v1Router);
+router.use('/v2', v2Router);
+
+module.exports = router;
+```
+
+This creates versioned endpoints:
+- `/v1/users`
+- `/v2/users`
+
+## Route Middleware
+
+Apply middleware to specific routes or route groups:
+
+```javascript src/routes/index.js
+const express = require('express');
+const router = express.Router();
+const verifyJWT = require('../middlewares/verifyJWT');
+
+const userRouter = require('./users.router');
+const productRouter = require('./products.router');
+const authRouter = require('./auth.router');
+
+// Public routes
+router.use('/auth', authRouter);
+
+// Protected routes (require authentication)
+router.use('/users', verifyJWT, userRouter);
+router.use('/products', verifyJWT, productRouter);
+
+module.exports = router;
+```
+
+<Tabs>
+  <Tab title="Public Routes">
+    Routes accessible without authentication:
+    ```javascript
+    router.use('/auth', authRouter);
+    ```
+    - `POST /auth/login`
+    - `POST /auth/register`
+  </Tab>
+  
+  <Tab title="Protected Routes">
+    Routes requiring JWT authentication:
+    ```javascript
+    router.use('/users', verifyJWT, userRouter);
+    ```
+    - `GET /users` (requires valid token)
+    - `POST /users` (requires valid token)
+  </Tab>
+</Tabs>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Modular Structure" icon="folder-tree">
+    Keep each resource in its own router file for better organization and maintainability.
+  </Card>
+  
+  <Card title="RESTful Conventions" icon="route">
+    Follow REST conventions: GET for reading, POST for creating, PUT for updating, DELETE for removing.
+  </Card>
+  
+  <Card title="Consistent Naming" icon="signature">
+    Use plural nouns for resource names (e.g., `/users`, `/products`, not `/user`, `/product`).
+  </Card>
+  
+  <Card title="Route Grouping" icon="layer-group">
+    Group related routes using `router.route()` to reduce code duplication.
+  </Card>
+</CardGroup>
+
+## Quick Reference
+
+```javascript Complete Router Template
+const express = require('express');
+const router = express.Router();
+const {
+    getAll,
+    create,
+    getOne,
+    remove,
+    update
+} = require('../controllers/resource.controllers');
+
+// Collection routes
+router.route('/')
+    .get(getAll)      // GET /resource
+    .post(create);    // POST /resource
+
+// Individual resource routes
+router.route('/:id')
+    .get(getOne)      // GET /resource/:id
+    .put(update)      // PUT /resource/:id
+    .delete(remove);  // DELETE /resource/:id
+
+module.exports = router;
+```

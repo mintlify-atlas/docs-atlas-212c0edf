@@ -1,0 +1,473 @@
+---
+title: Installation
+description: Complete installation guide with system requirements, dependencies, and configuration options
+---
+
+## System Requirements
+
+Before installing Backend Template, ensure your system meets these requirements:
+
+<CardGroup cols={2}>
+  <Card title="Node.js" icon="node-js">
+    **Version 16.x or higher**
+    
+    Recommended: 18.x LTS or 20.x LTS
+  </Card>
+  <Card title="PostgreSQL" icon="database">
+    **Version 12 or higher**
+    
+    Must be running and accessible
+  </Card>
+  <Card title="Package Manager" icon="box">
+    **npm, yarn, or pnpm**
+    
+    npm comes with Node.js
+  </Card>
+  <Card title="Git" icon="git">
+    **Version 2.x or higher**
+    
+    For cloning the repository
+  </Card>
+</CardGroup>
+
+## Installation Methods
+
+### Clone from Repository
+
+<Steps>
+  <Step title="Clone the Repository">
+    ```bash
+    git clone https://github.com/your-username/backend-template.git
+    cd backend-template
+    ```
+  </Step>
+
+  <Step title="Install Dependencies">
+    Choose your preferred package manager:
+
+    <CodeGroup>
+    ```bash npm
+    npm install
+    ```
+
+    ```bash yarn
+    yarn install
+    ```
+
+    ```bash pnpm
+    pnpm install
+    ```
+    </CodeGroup>
+
+    This installs all dependencies listed in `package.json`.
+  </Step>
+
+  <Step title="Verify Installation">
+    Check that all dependencies are installed correctly:
+
+    <CodeGroup>
+    ```bash npm
+    npm list --depth=0
+    ```
+
+    ```bash yarn
+    yarn list --depth=0
+    ```
+
+    ```bash pnpm
+    pnpm list --depth=0
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+## Understanding Dependencies
+
+### Production Dependencies
+
+These packages are required for the application to run:
+
+#### Core Framework
+
+```json package.json
+"express": "^5.1.0"
+```
+
+Express.js version 5.x - the web framework powering the server. Handles routing, middleware, and HTTP requests.
+
+#### Database & ORM
+
+```json package.json
+"sequelize": "^6.37.7",
+"pg": "^8.16.3",
+"pg-hstore": "^2.3.4"
+```
+
+- **sequelize**: Object-relational mapping (ORM) for working with PostgreSQL
+- **pg**: PostgreSQL client for Node.js
+- **pg-hstore**: Serialization library for PostgreSQL hstore data types
+
+<Note>
+  Sequelize supports MySQL, SQLite, and other databases, but this template is optimized for PostgreSQL.
+</Note>
+
+#### Security
+
+```json package.json
+"helmet": "^8.1.0",
+"cors": "^2.8.5",
+"bcrypt": "6.0.0",
+"jsonwebtoken": "9.0.3"
+```
+
+- **helmet**: Sets secure HTTP headers (Content Security Policy, X-Frame-Options, etc.)
+- **cors**: Enables Cross-Origin Resource Sharing for frontend integration
+- **bcrypt**: Hashes and verifies passwords securely
+- **jsonwebtoken**: Creates and validates JWT tokens for authentication
+
+#### Configuration & Utilities
+
+```json package.json
+"dotenv": "^17.2.3",
+"cloudinary": "2.9.0"
+```
+
+- **dotenv**: Loads environment variables from `.env` files
+- **cloudinary**: Cloud-based image and file upload service integration
+
+### Development Dependencies
+
+```json package.json
+"nodemon": "^3.1.11",
+"jest": "30.2.0",
+"supertest": "7.2.2"
+```
+
+- **nodemon**: Auto-restarts the server when files change (development only)
+- **jest**: Testing framework for unit and integration tests
+- **supertest**: HTTP testing library for API endpoints
+
+## Environment Configuration
+
+<Steps>
+  <Step title="Create Environment File">
+    Copy the example environment file:
+
+    ```bash
+    cp .env.example .env
+    ```
+
+    The `.env.example` template:
+
+    ```bash .env.example
+    DATABASE_URL=postgres://postgres:root@127.0.0.1:5432/<nombre_db>
+    ```
+  </Step>
+
+  <Step title="Configure Database">
+    Edit `.env` with your PostgreSQL credentials:
+
+    ```bash .env
+    DATABASE_URL=postgres://username:password@host:port/database_name
+    PORT=8080
+    ```
+
+    **Connection String Format:**
+    ```
+    postgres://[username]:[password]@[host]:[port]/[database]
+    ```
+
+    Example configurations:
+
+    <Tabs>
+      <Tab title="Local Development">
+        ```bash
+        DATABASE_URL=postgres://postgres:mypassword@localhost:5432/myapp_dev
+        PORT=8080
+        ```
+      </Tab>
+
+      <Tab title="Docker PostgreSQL">
+        ```bash
+        DATABASE_URL=postgres://postgres:postgres@db:5432/app_database
+        PORT=8080
+        ```
+      </Tab>
+
+      <Tab title="Cloud Database">
+        ```bash
+        DATABASE_URL=postgres://user:pass@db.example.com:5432/production_db
+        PORT=8080
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Optional: Add JWT Secret">
+    For authentication features, add a JWT secret:
+
+    ```bash .env
+    DATABASE_URL=postgres://postgres:root@127.0.0.1:5432/myapp
+    PORT=8080
+    JWT_SECRET=your-super-secret-key-change-this-in-production
+    ```
+
+    <Warning>
+      Never commit `.env` files to version control. The `.gitignore` file already excludes it.
+    </Warning>
+  </Step>
+
+  <Step title="Optional: Configure Cloudinary">
+    If using file uploads, add Cloudinary credentials:
+
+    ```bash .env
+    DATABASE_URL=postgres://postgres:root@127.0.0.1:5432/myapp
+    PORT=8080
+    JWT_SECRET=your-secret-key
+    CLOUDINARY_CLOUD_NAME=your-cloud-name
+    CLOUDINARY_API_KEY=your-api-key
+    CLOUDINARY_API_SECRET=your-api-secret
+    ```
+  </Step>
+</Steps>
+
+## PostgreSQL Setup
+
+If you don't have PostgreSQL installed:
+
+<Tabs>
+  <Tab title="macOS">
+    **Using Homebrew:**
+
+    ```bash
+    brew install postgresql@16
+    brew services start postgresql@16
+    ```
+
+    **Create a database:**
+
+    ```bash
+    createdb myapp_dev
+    ```
+  </Tab>
+
+  <Tab title="Ubuntu/Debian">
+    ```bash
+    sudo apt update
+    sudo apt install postgresql postgresql-contrib
+    sudo systemctl start postgresql
+    sudo systemctl enable postgresql
+    ```
+
+    **Create database and user:**
+
+    ```bash
+    sudo -u postgres psql
+    CREATE DATABASE myapp_dev;
+    CREATE USER myuser WITH PASSWORD 'mypassword';
+    GRANT ALL PRIVILEGES ON DATABASE myapp_dev TO myuser;
+    \q
+    ```
+  </Tab>
+
+  <Tab title="Windows">
+    1. Download from [postgresql.org/download/windows](https://www.postgresql.org/download/windows/)
+    2. Run the installer
+    3. Use pgAdmin or psql to create a database:
+
+    ```sql
+    CREATE DATABASE myapp_dev;
+    ```
+  </Tab>
+
+  <Tab title="Docker">
+    ```bash
+    docker run --name postgres-dev \
+      -e POSTGRES_PASSWORD=root \
+      -e POSTGRES_DB=myapp_dev \
+      -p 5432:5432 \
+      -d postgres:16
+    ```
+
+    Your `DATABASE_URL` would be:
+    ```
+    postgres://postgres:root@localhost:5432/myapp_dev
+    ```
+  </Tab>
+</Tabs>
+
+## Running the Application
+
+### Development Mode
+
+Run with automatic restart on file changes:
+
+<CodeGroup>
+```bash npm
+npm run dev
+```
+
+```bash yarn
+yarn dev
+```
+
+```bash pnpm
+pnpm dev
+```
+</CodeGroup>
+
+This runs:
+```json package.json
+"dev": "nodemon src/server"
+```
+
+### Production Mode
+
+Run without Nodemon for production environments:
+
+<CodeGroup>
+```bash npm
+npm start
+```
+
+```bash yarn
+yarn start
+```
+
+```bash pnpm
+pnpm start
+```
+</CodeGroup>
+
+This runs:
+```json package.json
+"start": "node src/server"
+```
+
+<Note>
+  In production, consider using a process manager like **PM2** or **systemd** for process management and auto-restart capabilities.
+</Note>
+
+## Testing the Installation
+
+Verify everything is working:
+
+<Steps>
+  <Step title="Start the Server">
+    ```bash
+    npm run dev
+    ```
+
+    Expected output:
+    ```
+    DB connected
+    👉 Server running on port 8080
+    👉 Link http://localhost:8080
+    ```
+  </Step>
+
+  <Step title="Test the Endpoint">
+    ```bash
+    curl http://localhost:8080
+    ```
+
+    Expected response:
+    ```
+    Welcome to express!
+    ```
+  </Step>
+
+  <Step title="Check Database Connection">
+    If you see "DB connected" in the console, Sequelize successfully connected to PostgreSQL.
+
+    The connection is established in `src/server.js:8`:
+    ```javascript
+    sequelize.sync();
+    console.log("DB connected");
+    ```
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Database connection refused">
+    **Error:** `ECONNREFUSED` or `Connection refused`
+
+    **Solutions:**
+    - Ensure PostgreSQL is running: `sudo systemctl status postgresql`
+    - Check the `DATABASE_URL` host and port
+    - Verify PostgreSQL accepts TCP connections (check `postgresql.conf`)
+    - Test connection: `psql -h localhost -U postgres -d myapp_dev`
+  </Accordion>
+
+  <Accordion title="Authentication failed for user">
+    **Error:** `password authentication failed`
+
+    **Solutions:**
+    - Verify username and password in `DATABASE_URL`
+    - Check PostgreSQL user exists: `psql -U postgres -c "\du"`
+    - Reset password if needed:
+      ```sql
+      ALTER USER postgres WITH PASSWORD 'newpassword';
+      ```
+  </Accordion>
+
+  <Accordion title="Database does not exist">
+    **Error:** `database "myapp" does not exist`
+
+    **Solution:**
+    ```bash
+    createdb myapp_dev
+    # or in psql:
+    CREATE DATABASE myapp_dev;
+    ```
+  </Accordion>
+
+  <Accordion title="Port already in use">
+    **Error:** `EADDRINUSE: address already in use :::8080`
+
+    **Solutions:**
+    - Change `PORT` in `.env` to a different port (e.g., 3000, 5000)
+    - Kill the process using port 8080:
+      ```bash
+      # Find process
+      lsof -i :8080
+      # Kill it
+      kill -9 <PID>
+      ```
+  </Accordion>
+
+  <Accordion title="Module not found errors">
+    **Error:** `Cannot find module 'express'`
+
+    **Solution:**
+    Dependencies not installed. Run:
+    ```bash
+    npm install
+    ```
+
+    If issues persist, delete `node_modules` and reinstall:
+    ```bash
+    rm -rf node_modules package-lock.json
+    npm install
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart Guide" icon="rocket" href="/quickstart">
+    Build your first API endpoint in 5 minutes
+  </Card>
+  <Card title="Project Structure" icon="folder-tree">
+    Learn the application architecture
+  </Card>
+  <Card title="Create Models" icon="database">
+    Define your database schema with Sequelize
+  </Card>
+  <Card title="Authentication" icon="shield">
+    Implement JWT-based authentication
+  </Card>
+</CardGroup>

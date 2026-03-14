@@ -1,0 +1,270 @@
+---
+title: 'Middleware Configuration'
+description: 'Security, parsing, and error handling middleware setup'
+---
+
+## Overview
+
+The application uses several Express middleware components configured in `src/app.js` to handle request parsing, security, CORS, and error handling.
+
+## Middleware Stack
+
+Middleware is applied in the following order:
+
+1. **express.json()** - Body parsing
+2. **helmet()** - Security headers
+3. **cors()** - Cross-Origin Resource Sharing
+4. **router** - Application routes
+5. **errorHandler** - Error handling (post-routes)
+
+## Body Parsing Middleware
+
+### express.json()
+
+Parses incoming requests with JSON payloads and makes the data available in `req.body`.
+
+```javascript src/app.js
+app.use(express.json());
+```
+
+<ParamField path="express.json()" type="middleware">
+  Automatically parses JSON request bodies. Supports Content-Type: application/json.
+</ParamField>
+
+**Example Request:**
+
+```javascript
+// Client request
+fetch('/api/users', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ name: 'John', email: 'john@example.com' })
+});
+
+// Server access
+app.post('/api/users', (req, res) => {
+  console.log(req.body); // { name: 'John', email: 'john@example.com' }
+});
+```
+
+## Security Middleware
+
+### helmet()
+
+Helmet helps secure Express apps by setting various HTTP headers to protect against common vulnerabilities.
+
+```javascript src/app.js
+app.use(helmet({
+    crossOriginResourcePolicy: false,
+}));
+```
+
+<ParamField path="helmet" type="middleware">
+  Sets security-related HTTP headers including:
+  - Content Security Policy
+  - X-DNS-Prefetch-Control
+  - X-Frame-Options
+  - X-Content-Type-Options
+  - And more...
+</ParamField>
+
+<ParamField path="crossOriginResourcePolicy" type="boolean" default="false">
+  Disables Cross-Origin Resource Policy to allow cross-origin resource loading. Set to `false` to enable resource sharing.
+</ParamField>
+
+<Note>
+  The `crossOriginResourcePolicy: false` configuration allows resources to be loaded cross-origin, which is useful for APIs serving multiple frontends.
+</Note>
+
+## CORS Middleware
+
+### cors()
+
+Enables Cross-Origin Resource Sharing (CORS) to allow requests from different origins.
+
+```javascript src/app.js
+app.use(cors());
+```
+
+<ParamField path="cors" type="middleware">
+  Enables CORS with default configuration, allowing all origins. For production, configure specific allowed origins.
+</ParamField>
+
+### Custom CORS Configuration
+
+For production environments, configure specific origins:
+
+<CodeGroup>
+```javascript Development (All Origins)
+app.use(cors());
+```
+
+```javascript Production (Specific Origins)
+app.use(cors({
+  origin: ['https://yourdomain.com', 'https://app.yourdomain.com'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+```
+</CodeGroup>
+
+## Error Handling Middleware
+
+### errorHandler
+
+Custom error handler that processes different types of errors, particularly Sequelize database errors.
+
+```javascript src/app.js
+app.use(errorHandler)
+```
+
+<Warning>
+  The errorHandler middleware must be placed **after** all routes to catch errors from route handlers.
+</Warning>
+
+### Error Handler Implementation
+
+The error handler in `src/utils/errorHandler.js` processes different error types:
+
+```javascript src/utils/errorHandler.js
+const errorHandler = (error, _req, res, _next) => {
+    if(error.name === 'SequelizeValidationError') {
+        const errObj = {};
+        error.errors.map(er => {
+            errObj[er.path] = er.message;
+        })
+        return res.status(400).json(errObj);
+    }
+    if(error.name === 'SequelizeForeignKeyConstraintError'){
+        return res.status(400).json({ 
+            message: error.message,
+            error: error.parent.detail
+        });
+    }
+    if(error.name === 'SequelizeDatabaseError'){
+        return res.status(400).json({ 
+            message: error.message
+        });
+    }
+    return res.status(500).json({
+        message: error.message,
+        error: error
+    });
+}
+```
+
+### Handled Error Types
+
+<Tabs>
+  <Tab title="SequelizeValidationError">
+    <ResponseField name="status" type="400">
+      Validation errors from model constraints
+    </ResponseField>
+    
+    **Response Format:**
+    ```json
+    {
+      "email": "Email must be valid",
+      "name": "Name cannot be null"
+    }
+    ```
+  </Tab>
+  
+  <Tab title="SequelizeForeignKeyConstraintError">
+    <ResponseField name="status" type="400">
+      Foreign key constraint violations
+    </ResponseField>
+    
+    **Response Format:**
+    ```json
+    {
+      "message": "Foreign key constraint error",
+      "error": "Key (user_id)=(123) is not present in table users"
+    }
+    ```
+  </Tab>
+  
+  <Tab title="SequelizeDatabaseError">
+    <ResponseField name="status" type="400">
+      General database errors
+    </ResponseField>
+    
+    **Response Format:**
+    ```json
+    {
+      "message": "Database error message"
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Generic Error">
+    <ResponseField name="status" type="500">
+      All other uncaught errors
+    </ResponseField>
+    
+    **Response Format:**
+    ```json
+    {
+      "message": "Error message",
+      "error": { /* error object */ }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Complete Middleware Configuration
+
+Here's the complete middleware setup from `src/app.js`:
+
+```javascript src/app.js
+const express = require('express');
+const helmet = require('helmet');
+const cors = require('cors');
+const router = require('./routes');
+const errorHandler = require('./utils/errorHandler');
+require('dotenv').config();
+
+const app = express();
+
+// Middlewares (pre-routes)
+app.use(express.json());
+app.use(helmet({
+    crossOriginResourcePolicy: false,
+}));
+app.use(cors());
+
+// Routes
+app.use(router);
+app.get('/', (req, res) => {
+    return res.send("Welcome to express!");
+})
+
+// Middlewares (post-routes)
+app.use(errorHandler)
+
+module.exports = app;
+```
+
+## Adding Custom Middleware
+
+To add custom middleware, insert it before the router:
+
+```javascript
+// Custom logging middleware
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`);
+  next();
+});
+
+// Custom authentication middleware
+const authMiddleware = require('./middlewares/auth');
+app.use('/api', authMiddleware);
+
+// Then add router
+app.use(router);
+```
+
+<Note>
+  Always place error-handling middleware last, after all routes and other middleware.
+</Note>

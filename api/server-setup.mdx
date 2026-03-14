@@ -1,0 +1,146 @@
+---
+title: 'Server Setup'
+description: 'Configure and initialize the Express server'
+---
+
+## Overview
+
+The server setup in `src/server.js` handles the initialization of the Express application, database connection, and starts the HTTP server on the configured port.
+
+## Server Initialization
+
+The server follows an async initialization pattern to ensure proper database connection before accepting requests.
+
+```javascript src/server.js
+const app = require('./app');
+const sequelize = require('./utils/connection');
+
+const PORT = process.env.PORT || 8080;
+
+const main = async () => {
+    try {
+        sequelize.sync();
+        console.log("DB connected");
+        app.listen(PORT);
+        console.log(`Server running on port ${PORT}`);
+        console.log(`Link http://localhost:${PORT}`);
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+main();
+```
+
+## Configuration
+
+### Port Configuration
+
+<ParamField path="PORT" type="number" default="8080">
+  The port number where the server listens for incoming requests. Configure via the `PORT` environment variable.
+</ParamField>
+
+<CodeGroup>
+```bash .env
+PORT=8080
+```
+
+```bash Production
+PORT=3000
+```
+</CodeGroup>
+
+### Database Synchronization
+
+The server uses Sequelize ORM for database operations. On startup, `sequelize.sync()` is called to synchronize the database schema with your models.
+
+<Note>
+  `sequelize.sync()` will create tables if they don't exist. In production, consider using migrations instead of auto-sync.
+</Note>
+
+## Startup Sequence
+
+The server initialization follows this sequence:
+
+1. **Load Environment Variables** - Dotenv configuration is loaded in `app.js`
+2. **Database Connection** - Sequelize connection is established via `src/utils/connection.js`
+3. **Database Sync** - Tables are synchronized with defined models
+4. **Start Server** - Express app begins listening on the configured PORT
+5. **Confirmation** - Console logs confirm successful startup
+
+## Error Handling
+
+The main function includes try-catch error handling for startup failures:
+
+```javascript
+try {
+    sequelize.sync();
+    console.log("DB connected");
+    app.listen(PORT);
+} catch (error) {
+    console.log(error)
+}
+```
+
+<Warning>
+  If database connection fails, the error will be logged but the server may still start. Consider adding proper error handling to exit the process on critical failures.
+</Warning>
+
+## Database Connection
+
+The database connection is configured in `src/utils/connection.js`:
+
+```javascript src/utils/connection.js
+const { Sequelize } = require('sequelize');
+require('dotenv').config();
+
+const sequelize = new Sequelize(process.env.DATABASE_URL, { logging: false })
+
+module.exports = sequelize;
+```
+
+<ParamField path="DATABASE_URL" type="string" required>
+  Full database connection string including protocol, credentials, host, port, and database name.
+</ParamField>
+
+### Example Database URLs
+
+<Tabs>
+  <Tab title="PostgreSQL">
+    ```bash
+    DATABASE_URL=postgresql://user:password@localhost:5432/dbname
+    ```
+  </Tab>
+  <Tab title="MySQL">
+    ```bash
+    DATABASE_URL=mysql://user:password@localhost:3306/dbname
+    ```
+  </Tab>
+  <Tab title="SQLite">
+    ```bash
+    DATABASE_URL=sqlite::memory:
+    ```
+  </Tab>
+</Tabs>
+
+## Starting the Server
+
+To start the development server:
+
+```bash
+npm run dev
+```
+
+For production:
+
+```bash
+npm start
+```
+
+You should see the following console output:
+
+```
+DB connected
+Server running on port 8080
+Link http://localhost:8080
+```

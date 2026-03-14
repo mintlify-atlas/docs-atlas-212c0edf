@@ -1,0 +1,86 @@
+{
+  "projectType": "api-service",
+  "projectName": "Backend Template",
+  "projectDescription": "Express.js backend template with PostgreSQL, Sequelize ORM, authentication, and security middleware for rapid API development",
+  "theme": "aspen",
+  "primaryColor": "#10B981",
+  "lightColor": "#34D399",
+  "darkColor": "#059669",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/architecture",
+              "concepts/database-connection",
+              "concepts/error-handling"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/environment-setup",
+              "guides/creating-routes",
+              "guides/database-models",
+              "guides/middleware",
+              "guides/authentication"
+            ]
+          },
+          {
+            "group": "Utilities",
+            "pages": [
+              "utilities/error-handler",
+              "utilities/catch-error",
+              "utilities/database-connection"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Server",
+            "pages": [
+              "api/server-setup",
+              "api/middleware-configuration"
+            ]
+          },
+          {
+            "group": "Routes",
+            "pages": [
+              "api/routes-overview"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Express.js server with security middleware (Helmet, CORS)",
+    "PostgreSQL database with Sequelize ORM",
+    "Centralized error handling for API responses",
+    "JWT authentication and bcrypt password hashing",
+    "Environment-based configuration with dotenv",
+    "Development and production modes with nodemon"
+  ],
+  "publicApiSurface": [
+    "GET / - Welcome endpoint",
+    "app.js - Express application configuration",
+    "server.js - Server initialization and database connection",
+    "errorHandler - Sequelize error handling middleware",
+    "catchError - Async error wrapper for route handlers",
+    "sequelize - Database connection instance"
+  ]
+}
